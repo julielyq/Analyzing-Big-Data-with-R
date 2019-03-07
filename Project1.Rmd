@@ -1,0 +1,198 @@
+---
+title: 'Project 1: Analyzing Housing Market through HomeZilla data'
+author: "Yunqiu (Julie) Li, Kun Qiu, Yudan Ding, Jiahui Zhong"
+date: "Fall 2018"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+## 1. Exploy data structure
+
+```{r, warning=FALSE, message=FALSE}
+library(readxl)
+library(tidyverse)
+```
+
+
+```{r, warning=FALSE}
+# a.
+## Read in the '62 Properties' page in Homezilla spreadsheet and name it as properties.
+properties <- read_excel("/Users/liyunqiu/Desktop/Fall 2018/big data I/Homezilla.xlsx")
+
+## Read in the 'browsing Data' page in Homezilla spreadsheet and name it as browsing
+browsing <- read_excel("/Users/liyunqiu/Desktop/Fall 2018/big data I/Homezilla.xlsx", sheet = "Browsing Data")
+
+## Display the internal struture for properties
+str(properties)
+## Display the internal struture for browsing
+str(browsing)
+
+## Keep properties that are houses in the data-frame properties
+properties_clean <- properties %>%
+  filter(type == "house")
+```
+
+There are 62 rows(oberservations) and 10 columns(variables) in the properties data sheet, and there are 29491 rows(oberservations) and 15 columns(variables) in the browsing data sheet.
+
+
+## 2. Understand housing markets
+```{r, warning=FALSE}
+# a.
+## Extract the number of distinct customers and number of distinct photos by property Web ID from the browsing dataset
+browsing $`Web ID` <- as.factor(browsing$`Web ID`)
+browsing_new <-  browsing %>%
+group_by(`Web ID`) %>%
+summarize(Distinct_Customer=n_distinct(`Customer ID`),
+          Distinct_Photo=n_distinct(`Photo ID`))
+
+# b.
+## Merge the data extrated above with properties_clean
+df_merge <- merge(properties_clean, browsing_new)
+
+# c.
+
+## Look at the supply of houses, number of customers and the average price for each subtype
+df_merge %>%
+  group_by(subtype) %>%
+  summarise(HouseSupply=n(),
+            HousePrice=mean(price), Customer=sum(Distinct_Customer))
+```
+
+```{r}
+## Look at supply of houses, number of customers and the average price for each subtype and number of bedrooms
+df_merge %>%
+  group_by(subtype,bedrooms) %>%
+  summarise(HouseSupply=n(),
+            HousePrice=mean(price), Customer=sum(Distinct_Customer))
+```
+
+Based on the first table output, the housing market consists mostly of Single Family Detached houses, with the higest average price (941232.9) among subtypes. The number of customers(944) in this subtype is also significantly higher than that of Condo Apartment or Townhouse. When considering it with the number of bethroom for each subtype(seond table output), we can see Single Family Detached houses with 3 bedrooms are most popular among all. We also find Single Family Detached with 5 bedrooms is the only kind of house whose customers are over 100 with price beyond 1 million. HomeZilla should definitely put the most focus on Family Detached houses since they’re the most popular ones among customers and can sell at the highest prices among all. Within this subtype, they should pay more attention to Single Family Detached houses with 3 and 5 bedrooms.
+
+
+## 3. Explore supply of pictures
+```{r}
+## Look at supply of houses, number of customers and the average price for each subtype and number of bedrooms
+plot <- df_merge %>%
+  group_by(subtype,bedrooms) %>%
+  summarise(HouseSupply=n(),
+            HousePrice=mean(price), 
+            Customer=sum(Distinct_Customer), 
+            AveragePhotoNumber = (sum(Distinct_Photo)/n_distinct(`Web ID`))) %>%   arrange(AveragePhotoNumber)
+# display "plot"
+plot
+```
+
+```{r, warning=FALSE}
+# Plot bar graph of average number of photo supply by number of bedrooms, faceting by house subtype
+ggplot(plot, aes(x = bedrooms, y = AveragePhotoNumber, fill = subtype)) + 
+  geom_bar(stat = 'identity') +
+  facet_wrap(~subtype, scale = 'free_x') + 
+  scale_x_continuous(name = 'Number of Bedrooms', limits = c (0,9), breaks=c(1,2,3,4,5,6,7,8,9)) +
+  scale_y_continuous(name = 'Average Number of Photo Supply') +
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9")) +
+  labs(title = "Average Photo Supply") + 
+  theme_update(plot.title = element_text(hjust = 0.5))
+```
+
+We choose average number of photos because the total number of photos could not provide a precise answer. As the number of properties for each subtype is different, the total number would be biased simply because a given property subtype has a larger supply. For example, if we generate the total photo number for each house subtype, single family detached will have the highest number because the supply of single family detached property(36) is way larger than the other two subtypes(16 and 9). From the above table output, we can see the average numbers of picture mainly concentrate between 15-20. Single family detached houses with 2 bedrooms has the highest average number of pictures(22.5), which is not corresponding to our previous finding. We would recommend HomeZilla to provide more pictures for single family detached with 3 and 5 bedrooms because these two categories have the largest number of customers with relatively high price, but currently they do not have the most pictures.
+
+## 4. Explore demand of pictures
+```{r}
+# a.
+## Extract the total time spent on viewing pictures and the number of pictures viewed for every customer and property from the browsing dataset
+photocustomer <- browsing %>% 
+  group_by(`Web ID`,`Customer ID`) %>%
+  summarise(TotalBrowsingTime = sum(`Time Viewed`),PicturesViewed = n_distinct(`Photo ID`)) %>%
+  summarise(TotalBrowsingTime = sum(TotalBrowsingTime) / n_distinct(`Customer ID`),PictureViewed = sum(PicturesViewed) / n_distinct(`Customer ID`))
+photocustomer
+```
+
+```{r}
+# b.
+properties_new <- merge(df_merge,photocustomer)
+
+# c.
+## Look at the number of customers, average pictures viewed and average time spent on viewing pictures for each subtype and number of bedrooms
+plot4 <- properties_new %>%
+  group_by(subtype,bedrooms) %>%
+  summarise(Customer=sum(Distinct_Customer), 
+            AverageTime = (sum(TotalBrowsingTime)/n()), AveragePictureViewed = sum(PictureViewed)/n())
+plot4
+```
+
+```{r}
+AveragePictureViewed = plot4$AveragePictureViewed
+AverageTime = plot4$AverageTime
+
+ggplot(plot4,aes(x=factor(bedrooms), y = Customer,size = AveragePictureViewed,color = AverageTime))+
+  geom_point(stat = "identity")+
+  facet_wrap(~subtype)+
+  scale_color_gradient(low = "#EEC900",high = "#8B7500")+
+  labs(x = 'Number of Bedrooms', y = 'Count of Customers', title = "Average Time and Pictures Viewed of Three House Subtypes")
+```
+
+While the average numbers of picture mainly concentrate between 15-20, we can find that the average number of pictures viewed focus between 10-14. There are 6 categories from different house subtypes whose average view time is beyond 1000 (Single family detached houses with 3,6,8 and 9 bedrooms and Townhouses with 2 and 3 bedrooms). Based on the length of view time, We can infer that pictures of these houses are of good quality. The average view time of Condo Apartment is far below average, so we recommend Homezilla improve the quality of their pictures.
+
+Combined with our findings before, we recommend Homezilla provides more good quality pictures for Single Family Detached houses with 3 bedrooms and improve the quality of pictures for Single Family Detached houses with 5 bedrooms.
+
+
+## 5. Explore types of pictures
+```{r, warning=FALSE}
+# classify photo-types 
+PhotoLoc <- browsing %>% group_by(`Web ID`,`Photo Tag 1`) %>%
+  summarise(PhotoSupply = n_distinct(`Photo ID`))
+
+df_Photoloc <- merge(properties_clean, PhotoLoc)
+
+# Understand supply of pictures of each type by property subtype and number of bedrooms
+plot2 <- df_Photoloc %>% group_by(subtype, bedrooms, `Photo Tag 1`) %>% 
+  summarise( AvgPhotoSupply = round((sum(PhotoSupply)/n_distinct(`Web ID`))))
+
+# Plot bar graph of photo supply for different tag under Photo tag I category by number of bedrooms, faceting by house subtype
+ggplot(plot2, aes(x = bedrooms, y = AvgPhotoSupply, fill = `Photo Tag 1`)) +
+  geom_bar(stat = 'identity') +
+  facet_grid(cols = vars(subtype)) +
+  scale_x_continuous(name = 'Number of Bedrooms', limits = c (0,9), breaks=c(1,2,3,4,5,6,7,8,9)) +
+  scale_y_continuous(name = 'Average Number of Photo Supply')+ 
+  labs(title = "Average Photo Supply for Photo Tag 1")
+```
+
+As shown in the above table, HomeZilla provides more pictures of house interiors to users. The company may want to stock more pictures of floor plans, which is not currently available for townhouses. It may also consider adding more pictures of single family detached with 3 bedrooms and 5 bedrooms, as mentioned above.
+
+```{r, warning=FALSE}
+# Understand which properties do consumers spend more time looking at
+PhotoDemand <- browsing %>% group_by(`Customer ID`,`Web ID`, `Photo Tag 1`) %>% summarise(PhotoViewed = n_distinct(`Photo ID`), TimeSpent = sum(`Time Viewed`))
+
+df_photodemand <- merge(PhotoDemand, properties_clean)
+
+plot3 <- df_photodemand %>% group_by(subtype, bedrooms, `Photo Tag 1`) %>%
+  summarise(AvgPhotoViewed = sum(PhotoViewed)/n(), AvgTimeSpent = sum(TimeSpent)/n())
+
+# Plot bar graph of average time spent by each customer for different tag under Photo tag I category by number of bedrooms, faceting by house subtype
+ggplot(plot3, aes(x = bedrooms, y = AvgTimeSpent, fill = `Photo Tag 1`)) + 
+  geom_bar(stat = 'identity') +
+  facet_wrap(~subtype, scales = "free_x") + 
+  scale_x_continuous(name = 'Number of Bedrooms', limits = c (0,9), breaks=c(1,2,3,4,5,6,7,8,9)) +
+  scale_y_continuous(name = 'Average time spent by each customer') + 
+  labs(title = "Average Photo Viewed Time for Photo tag I") 
+```
+
+As shown in the above table, customers generally spent more time in viewing pictures of house interiors(blue) than exteriors(red) or floor plans(green). However, for single family detached with 3 bedrooms users tend to spend more time in viewing floor plans. Similar to the pattern we noticed in Question 4, customers who were searching for townhouses with 2 bedrooms on average spent more time in viewing pictures. However, we cannot conclude that users who are searching for townhouses are more interested in examining pictures as users may try to get a sense of the floor plan by viewing pictures of interiors.
+
+## 6. Final Reflections
+
+Discoveries regarding cleaning, analyzing and visualizing data: 
+
+ We find that the first key step to clean data would be removing the columns and rows that do not have a corresponding value in it, because furthur analysis will all implement based on the cleaned dataset. Before implement fuctions or plot graph based on specific varaibles, it would be worthwhile to check their conceptual data type first by using the str() function. After that, we will decide if factorize a variable is necessary or which specific type of graph we shall use according to thd data type. Also, to get a broader picture of the customer behaviorial pattern, merging cleaned datasets together would be very beneficial as we can conduct analysis based on more variables to get a tailored result. When filter, group or summarize data, it would be better to start from thinking what would be the result we are trying to generate, so we can implement a given function more precisely. We also feel that “group by” and “summarise” would be two of the most helpful functions to figure out the patterns for dataset. These two allow us to group dataset into different sub-categories and implement aggregate function based on those sub-categories.
+    
+    
+Discoveries regarding Homezilla: 
+
+Overall, properties that have bedrooms in the middle of range would be most popular among three subtypes. For example, condo apartment with two bedrooms have the most customers among all condo apartment. The overall range of number of bedrooms for condo apartment is 1-3. Similary, single family detached with 3-5 bedrooms have relative more customers among all single family detached. The overall range of number of bedrooms for single family detached is 2-9. Therefore, Homezila should focus more on those properties through increasing house supply, adding tailored marketing campign, increasing the number of photos, etc. Through closely following customer demand, Homezilla can generate an increasing number of potential sales.
+    Homezilla may also want to improve its process of obtaining the ‘Time Viewed’ information. As mentioned in the case there is no timestamp for the last-viewed photo in each access and thus Homezilla puts 0 for the Time Viewed cells for all last-viewed photos. This may potenetially distort data and affect the validity of our conclusion. We also spotted that there are some ‘Time Viewed’ values beyond 100,000, and the highest value is up to 332,909. It can be practical meaningful because it may indicate customers really like these houses and have seen these pictures over and over again. We cannot decide what standard to use to judge a certain value an outlier since we know little about typical user behaviours in Homezilla websites. Qualitative research should also be applied to gain infomation about user behaviours, which can be used to set up a more reasonable standard. Overall, we do concern about the effects of outliers, and strongly suggest Homezilla to improve its process of acquiring the ‘Time Viewed’ information and establish clear rules for data cleaning.
+
+
+
+
+
