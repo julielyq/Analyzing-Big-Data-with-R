@@ -1,0 +1,113 @@
+---
+title: 'Brief Analysis 2: Data Visualizations using HomeZilla Data'
+author: "Yunqiu (Julie) Li"
+date: "September 26, 2018"
+output:
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1.
+Set working directory 
+```{r}
+setwd("~/Desktop/Fall 2018/big data I")
+```
+
+Load tidyverse and readxl package
+
+```{r}
+library(tidyverse)
+library(readxl)
+```
+
+
+```{r}
+df = read_excel("Homezilla.xlsx", sheet = "62 Listing Properties") 
+```
+Explaination: read_excel function is used to read the excel file of the HomeZilla Data. Then, the read result is assigned to "df". This line of code basically helps to input the dataset.
+
+```{r}
+df_cleaned = df%>%filter(type == "house")
+```
+Explanation: The pipe operator takes the output of one statement and makes it the input of the next statement. Therefore, it implements the filter funtion based on "df" dataset. The filter function finds rows where condition is true, so the right side finds all the rows in which the value for type column is "house" based on "df". In other words, it returns all the cases that property type is house in the dataset and removes rows that the property type is not available. The result gets stored in the "df_cleaned".
+
+
+
+## 2.
+### a.
+
+According to the bar graph below, appoximate 59% of houses are detached.
+```{r}
+ggplot(df_cleaned, aes(x = factor(subtype))) + 
+      geom_bar(aes(y = (..count..)/sum(..count..)), width = 0.5) + 
+      geom_text(aes(y = ((..count..)/sum(..count..)), label = scales::percent((..count..)/sum(..count..))), stat ="count", vjust = -0.25) +
+      theme_update(plot.title = element_text(hjust = 0.5)) + 
+      labs(title = "House Subtype Proportion", y = "Percentage", x = "Subtype")
+```
+
+### b.
+Bsed on the bar graph below, most houses have bedrooms that range from 1 to 4. The number of bathrooms for condo apartment tends to be smaller, which ranges from 1 to 2.  The number of bathrooms for townhouse varies from 1 to 3. The number of bathrooms for single family detached ranges all the way from 1 to 8.
+```{r}
+ggplot(df_cleaned, aes(x = factor(bathrooms), fill = subtype)) + 
+       geom_bar(width = 0.5) + 
+       theme(text = element_text(size=10)) + 
+       labs(title = "Number of Bathrooms for Different House Subtypes", y = "Count", x = "Number of Bathrooms")
+```
+
+### c.
+Based on the scatter plot and line of best fit below, price of house has a positive relationship with area of house. As the area of house increase, prices of house increases.
+```{r}
+ggplot(df_cleaned, aes(x = sqfoot, y = (price/1000))) + 
+       geom_point(alpha = 0.4) + 
+       geom_smooth(method='lm', se = F, formula = y ~ x) + 
+       labs(title = "House Price vs. Area", y = "Price (thousands)", x = "Area (sqfoot)") 
+```
+
+
+
+## 3.
+### a.  One informative, well-labeled univariate graph
+i) I choose variable "staus" because I want to figure out the sales status for houses. Specifically, what percentage of houses is actively for sales, and what percentage is not for sale.
+ii) I select bar graph because it is applicable to a univariable. Since "status" is a discrete variable, I use geom_bar instead of geom_histogram.
+iii) I decrease the bar width through changing the aesthetics(width) of bar graph. Otherwise, the bars are too close to each other. I change the label of y axis in term of percent by changing the aesthetics for "geom_text" using "y = ((..count..)/sum(..count..)", then add label for each bar. Also, I adjust the position of bar label via "vjust" so that the label appears right at the top of bar. Furthermore, I map "status" to bar color to differentiate the two status catogeries. Finally, I change the label of legend using "scale_fill_discrete" to demonstrate the meanings for "STACT" and "STINA".
+iv) I'd like to find out the proportion of houses that has an active sales-status.
+v) Approximate 52% of houses are for sales, and 48% of houses are not for sale now.
+```{r}
+ggplot(df_cleaned, aes(x = status, fill = status)) + 
+       geom_bar(aes(y = (..count..)/sum(..count..)), width = 0.3) + 
+       geom_text(aes(y = ((..count..)/sum(..count..)), label = scales::percent((..count..)/sum(..count..))), stat = "count", vjust =  -0.25)+ 
+       labs(title = "Sale Status", y ="Percentage", x = "Status") +
+       scale_fill_discrete(name="status", breaks=c("STACT", "STINA"), labels=c("House for Sale", "House Not for Sale"))
+```
+
+### b.  One informative, well-labeled graph of a continuous variable broken out by different levels of a factor variable.
+i) I choose "area" and "subtype" because it's quite likely that the range of area will vary based on the house subtype. In other words, I'd like to figure out the ranges of house area for difference house type. 
+ii) I use box plot because it works for one continous variable and one discrete variable. "Area" is a continous variable, and "subtype" is a discrete variable. Therefore, I set "area" as y axis and "subtype" as x axis.
+iii) I map subtype on color of box plot and switch the default color set to new values to different each box. Also, I set the coordinate limit for y axis by adding a coordinates layer to ensure the visibility of condo apartment box and townhouse box.
+iv) The question I am trying to answer is which house sub-type has the largest range in area.
+v)  Among the three different house subtype, single family detached has the largest range in area.
+```{r}
+ggplot(df_cleaned, aes(x = subtype, y = (sqfoot), fill = subtype)) + 
+      geom_boxplot() +  coord_cartesian(ylim = c(500, 3500)) +       
+      scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9")) + 
+      labs(title = "Area for Different House Subtype", y = "Area (safoot)",  x = "Subtype")
+```
+
+### c.  One informative, well-labeled bivariate (x-y) graph displaying the relationship between two numerical variables, broken out by different levels of a factor variable.
+i) I choose "price"" and "area"" because I think these two variables have relationship with each other. Specifically, I'd like to know if the price for a certain house subtype has a stronger relatinship with area.
+ii) I choose scatter plot because it is applicable for two continous variables, in this cases, price and area.
+iii) I map subtype on the color of plot to increase the differentiation of the three facets. Also, I adjust the scale of three facets to "free" to increase the visibility of plots, so the plot won't cluster together. I switch alpha of plot to 0.4 to adjust overplotting and show plot overlap. 
+iv) I'd like to figure out the price of which house subtype has a stronger relatinship with area.
+v) Based on the lines of best fit, we can tell that among the three different house subtypes, price for singel faimly detached has the strongest positive relationship with its area. 
+```{r}
+ggplot(df_cleaned, aes(x = sqfoot, y = (price/1000), col = subtype)) + 
+      geom_point(alpha = 0.4)+ facet_grid(.~subtype, scales = "free" ) +
+      geom_smooth(method='lm', se = F, formula = y ~ x) + 
+      labs(title = "Price vs. Area (by house subtype)", y = "Price (thousands)", x = "Area (sqfoot)")
+```
+
+
+
