@@ -1,6 +1,6 @@
 ---
 title: 'Project 1: Analyzing Housing Market through HomeZilla data'
-author: "Yunqiu (Julie) Li, Kun Qiu, Yudan Ding, Jiahui Zhong"
+author: "Yunqiu(Julie) Li, Kun Qiu, Yudan Ding, Jiahui Zhong"
 date: "Fall 2018"
 output:
   pdf_document: default
